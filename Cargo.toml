@@ -1,0 +1,12 @@
+[package]
+name = "sqlpest"
+version = "0.1.0"
+authors = ["gwenn"]
+description = "SQL parser (as understood by SQLite)"
+repository = "https://github.com/gwenn/sqlpest"
+readme = "README.md"
+keywords = ["sql", "parser", "sqlite"]
+license = "Apache-2.0/MIT"
+
+[dependencies]
+pest = "^0.3.0"
