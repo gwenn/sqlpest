@@ -85,9 +85,9 @@ impl_rdp! {
         qualified_table_name = { (database_name ~ ["."])? ~ table_name }
         column_name = _{ name }
         index_name = _{ name }
-        name = _{ id } // TODO literal
+        name = _{ id } // TODO string_literal
 
-        id_string = { id | literal }
+        id_string = { id | string_literal }
         collation_name = _{ id_string }
         type_name = _{
             id_string+ |
@@ -118,13 +118,22 @@ impl_rdp! {
             [i"EXISTS"] ~ ["("] ~ select ~ [")"] |
             [i"CASE"] ~ expr? ~ ([i"WHEN"] ~ expr ~ [i"THEN"] ~ expr)+ ~ ([i"ELSE"] ~ expr)? ~ [i"END"] |
             [i"RAISE"] ~ ["("] ~ [i"IGNORE"] ~ [")"] |
-            [i"RAISE"] ~ ["("] ~ raise_type ~ [","] ~ literal ~ [")"] // TODO name versus literal
+            [i"RAISE"] ~ ["("] ~ raise_type ~ [","] ~ string_literal ~ [")"] // TODO name versus string_literal
         }
 
         raise_type = { [i"ROLLBACK"] | [i"ABORT"] | [i"FAIL"] }
 
+        literal = {
+            number |
+            string_literal |
+            blob |
+            [i"NULL"] |
+            [i"CURRENT_DATE"] |
+            [i"CURRENT_TIME"] |
+            [i"CURRENT_TIMESTAMP"]
+        }
         // A keyword in single quotes is a string literal.
-        literal = @{ ["'"] ~ (["''"] | !["'"] ~ any)* ~ ["'"] }
+        string_literal = @{ ["'"] ~ (["''"] | !["'"] ~ any)* ~ ["'"] }
         blob = @{ (["x"] | ["X"]) ~ ["'"] ~ (hex_digit)+ ~ ["'"] } // TODO nb of hex digit must be even.
 
         id = @{
