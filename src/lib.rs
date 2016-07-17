@@ -29,8 +29,10 @@ impl_rdp! {
         distinct = { [i"DISTINCT"] | [i"ALL"] }
         select_column = { expr ~ as_qualif? | ["*"] | table_name ~ ["."] ~ ["*"] }
         values = {
-            [i"VALUES"] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] |
-            values ~ [","] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"]
+            [i"VALUES"] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] ~ values_tail?
+        }
+        values_tail = {
+            [","] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] ~ values_tail?
         }
         as_qualif = {
             [i"AS"] ~ name |
@@ -38,8 +40,10 @@ impl_rdp! {
         }
         from = { [i"FROM"] ~ select_table_list }
         select_table_list = {
-            select_table |
-            select_table_list ~ join_operator ~ select_table ~ join_constraint?
+            select_table ~ select_table_list_tail?
+        }
+        select_table_list_tail = {
+            join_operator ~ select_table ~ join_constraint? ~ select_table_list_tail?
         }
         select_table = {
             qualified_table_name ~ as_qualif? ~ indexed? |
