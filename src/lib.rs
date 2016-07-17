@@ -23,7 +23,7 @@ impl_rdp! {
         }
         compound_operator = { [i"UNION"] | [i"UNION"] ~ [i"ALL"] | [i"EXCEPT"] | [i"INTERSECT"] }
         one_select = {
-            [i"SELECT"] ~ distinct? ~ select_column ~ ([","] ~ select_column)* ~ from? ~ where_clause? ~ group_by? |
+            ["SELECT"] ~ distinct? ~ select_column ~ ([","] ~ select_column)* ~ from? ~ where_clause? ~ group_by? |
             values
         }
         distinct = { [i"DISTINCT"] | [i"ALL"] }
