@@ -11,7 +11,7 @@ mod test;
 impl_rdp! {
     grammar! {
         cmd_list = { (explain_cmd ~ [";"])* ~ explain_cmd? }
-        explain_cmd = { ([i"EXPLAIN"] ~ ([i"QUERY"] ~ [i"PLAN"])?)? ~ cmd }
+        explain_cmd = { ([i"explain"] ~ ([i"query"] ~ [i"plan"])?)? ~ cmd }
         cmd = {
             select
         }
@@ -21,24 +21,24 @@ impl_rdp! {
         select_no_with = {
             one_select ~ (compound_operator ~ one_select)*
         }
-        compound_operator = { [i"UNION"] | [i"UNION"] ~ [i"ALL"] | [i"EXCEPT"] | [i"INTERSECT"] }
+        compound_operator = { [i"union"] | [i"union"] ~ [i"all"] | [i"except"] | [i"intersect"] }
         one_select = {
-            ["SELECT"] ~ distinct? ~ select_column ~ ([","] ~ select_column)* ~ from? ~ where_clause? ~ group_by? |
+            ["select"] ~ distinct? ~ select_column ~ ([","] ~ select_column)* ~ from? ~ where_clause? ~ group_by? |
             values
         }
-        distinct = { [i"DISTINCT"] | [i"ALL"] }
+        distinct = { [i"distinct"] | [i"all"] }
         select_column = { expr ~ as_qualif? | ["*"] | table_name ~ ["."] ~ ["*"] }
         values = {
-            [i"VALUES"] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] ~ values_tail?
+            [i"values"] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] ~ values_tail?
         }
         values_tail = {
             [","] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] ~ values_tail?
         }
         as_qualif = {
-            [i"AS"] ~ name |
+            [i"as"] ~ name |
             id_string
         }
-        from = { [i"FROM"] ~ select_table_list }
+        from = { [i"from"] ~ select_table_list }
         select_table_list = {
             select_table ~ select_table_list_tail?
         }
@@ -52,33 +52,33 @@ impl_rdp! {
             ["("] ~ select_table_list ~ [")"] ~ as_qualif?
         }
         join_constraint = {
-            [i"ON"] ~ expr |
-            [i"USING"] ~ ["("] ~ (column_name ~ ([","] ~ column_name)*) ~ [")"]
+            [i"on"] ~ expr |
+            [i"using"] ~ ["("] ~ (column_name ~ ([","] ~ column_name)*) ~ [")"]
         }
         join_operator = {
             [","] |
-            [i"JOIN"] |
-            [i"NATURAL"]? ~ join_type ~ [i"JOIN"]
+            [i"join"] |
+            [i"natural"]? ~ join_type ~ [i"join"]
         }
-        join_type = { [i"LEFT"] ~ [i"OUTER"]? | [i"INNER"] | [i"CROSS"] }
+        join_type = { [i"left"] ~ [i"outer"]? | [i"inner"] | [i"cross"] }
 
         indexed = {
-            [i"INDEXED"] ~ [i"BY"] ~ index_name |
-            [i"NOT"] ~ [i"INDEXED"]
+            [i"indexed"] ~ [i"by"] ~ index_name |
+            [i"not"] ~ [i"indexed"]
         }
 
-        where_clause = { [i"WHERE"] ~ expr }
-        group_by = { [i"GROUP"] ~ [i"BY"] ~ (expr ~ ([","] ~ expr)*) ~ ([i"HAVING"] ~ expr)? }
-        order_by = { [i"ORDER"] ~ [i"BY"] ~ (sorted_column ~ ([","] ~ sorted_column)*) }
+        where_clause = { [i"where"] ~ expr }
+        group_by = { [i"group"] ~ [i"by"] ~ (expr ~ ([","] ~ expr)*) ~ ([i"having"] ~ expr)? }
+        order_by = { [i"order"] ~ [i"by"] ~ (sorted_column ~ ([","] ~ sorted_column)*) }
         limit = {
-            [i"LIMIT"] ~ expr |
-            [i"LIMIT"] ~ expr ~ [i"OFFSET"] ~ expr |
-            [i"LIMIT"] ~ expr ~ [","] ~ expr
+            [i"limit"] ~ expr |
+            [i"limit"] ~ expr ~ [i"offset"] ~ expr |
+            [i"limit"] ~ expr ~ [","] ~ expr
         }
 
         // Common Table Expressions
-        with = { [i"WITH"] ~ [i"RECURSIVE"]? ~ (with_query ~ ([","] ~ with_query)*) }
-        with_query = { table_name ~ (["("] ~ (indexed_column ~ ([","] ~ indexed_column)*) ~ [")"])? ~ [i"AS"] ~ ["("] ~ select ~ [")"] }
+        with = { [i"with"] ~ [i"recursive"]? ~ (with_query ~ ([","] ~ with_query)*) }
+        with_query = { table_name ~ (["("] ~ (indexed_column ~ ([","] ~ indexed_column)*) ~ [")"])? ~ [i"as"] ~ ["("] ~ select ~ [")"] }
 
         database_name = _{ name }
         table_name = _{ name }
@@ -99,8 +99,8 @@ impl_rdp! {
             (["+"] | ["-"])? ~ number
         }
 
-        sort_order = { [i"ASC"] | [i"DESC"] }
-        indexed_column = { column_name ~ ([i"COLLATE"] ~ collation_name)? ~ sort_order? }
+        sort_order = { [i"asc"] | [i"desc"] }
+        indexed_column = { column_name ~ ([i"collate"] ~ collation_name)? ~ sort_order? }
         sorted_column = { expr ~ sort_order? }
 
         // Expression
@@ -111,26 +111,26 @@ impl_rdp! {
             name ~ ["."] ~ name |
             name ~ ["."] ~ name ~ ["."] ~ name |
             variable |
-            [i"CAST"] ~ ["("] ~ expr ~ [i"AS"] ~ type_name ~ [")"] |
+            [i"cast"] ~ ["("] ~ expr ~ [i"as"] ~ type_name ~ [")"] |
             id ~ ["("] ~ distinct? ~ (expr ~ ([","] ~ expr)*)? ~ [")"] |
             id ~ ["("] ~ ["*"] ~ [")"] |
             ["("] ~ select ~ [")"] |
-            [i"EXISTS"] ~ ["("] ~ select ~ [")"] |
-            [i"CASE"] ~ expr? ~ ([i"WHEN"] ~ expr ~ [i"THEN"] ~ expr)+ ~ ([i"ELSE"] ~ expr)? ~ [i"END"] |
-            [i"RAISE"] ~ ["("] ~ [i"IGNORE"] ~ [")"] |
-            [i"RAISE"] ~ ["("] ~ raise_type ~ [","] ~ string_literal ~ [")"] // TODO name versus string_literal
+            [i"exists"] ~ ["("] ~ select ~ [")"] |
+            [i"case"] ~ expr? ~ ([i"when"] ~ expr ~ [i"then"] ~ expr)+ ~ ([i"else"] ~ expr)? ~ [i"end"] |
+            [i"raise"] ~ ["("] ~ [i"ignore"] ~ [")"] |
+            [i"raise"] ~ ["("] ~ raise_type ~ [","] ~ string_literal ~ [")"] // TODO name versus string_literal
         }
 
-        raise_type = { [i"ROLLBACK"] | [i"ABORT"] | [i"FAIL"] }
+        raise_type = { [i"rollback"] | [i"abort"] | [i"fail"] }
 
         literal = {
             number |
             string_literal |
             blob |
-            [i"NULL"] |
-            [i"CURRENT_DATE"] |
-            [i"CURRENT_TIME"] |
-            [i"CURRENT_TIMESTAMP"]
+            [i"null"] |
+            [i"current_date"] |
+            [i"current_time"] |
+            [i"current_timestamp"]
         }
         // A keyword in single quotes is a string literal.
         string_literal = @{ ["'"] ~ (["''"] | !["'"] ~ any)* ~ ["'"] }
