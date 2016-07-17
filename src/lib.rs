@@ -23,7 +23,7 @@ impl_rdp! {
         }
         compound_operator = { [i"UNION"] | [i"UNION"] ~ [i"ALL"] | [i"EXCEPT"] | [i"INTERSECT"] }
         one_select = {
-            [i"SELECT"] ~ distinct? ~ (select_column ~ ([","] ~ select_column)*) ~ from? ~ where_clause? ~ group_by? |
+            [i"SELECT"] ~ distinct? ~ select_column ~ ([","] ~ select_column)* ~ from? ~ where_clause? ~ group_by? |
             values
         }
         distinct = { [i"DISTINCT"] | [i"ALL"] }
@@ -146,8 +146,11 @@ impl_rdp! {
             // A keyword enclosed in square brackets is an identifier. This is not standard SQL.
             ["["] ~ (!["]"] ~ any)* ~ ["]"]
         }
-        id_start = { ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
-        id_cont = { ["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
+        // FIXME ranges should have same-sized UTF-8 limits
+        //id_start = { ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
+        //id_cont = { ["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
+        id_start = { ['A'..'Z'] | ["_"] | ['a'..'z'] }
+        id_cont = { ["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'] }
 
         variable = @{
             ["?"] ~ digit* |
