@@ -3,5 +3,4 @@ rust:
   - nightly
 cache: cargo
 script:
-  - cargo build --verbose
-#  - cargo test --verbose
+  - cargo test --verbose
