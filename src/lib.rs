@@ -5,10 +5,13 @@ extern crate pest;
 
 use pest::prelude::*;
 
+#[cfg(test)]
+mod test;
+
 impl_rdp! {
     grammar! {
         cmd_list = { (explain_cmd ~ [";"])* ~ explain_cmd? }
-        explain_cmd = { (["EXPLAIN"] ~ (["QUERY"] ~ ["PLAN"])?)? ~ cmd }
+        explain_cmd = { ([i"EXPLAIN"] ~ ([i"QUERY"] ~ [i"PLAN"])?)? ~ cmd }
         cmd = {
             select
         }
@@ -18,22 +21,22 @@ impl_rdp! {
         select_no_with = {
             one_select ~ (compound_operator ~ one_select)*
         }
-        compound_operator = { ["UNION"] | ["UNION"] ~ ["ALL"] | ["EXCEPT"] | ["INTERSECT"] }
+        compound_operator = { [i"UNION"] | [i"UNION"] ~ [i"ALL"] | [i"EXCEPT"] | [i"INTERSECT"] }
         one_select = {
-            ["SELECT"] ~ distinct? ~ (select_column ~ ([","] ~ select_column)*) ~ from? ~ where_clause? ~ group_by? |
+            [i"SELECT"] ~ distinct? ~ (select_column ~ ([","] ~ select_column)*) ~ from? ~ where_clause? ~ group_by? |
             values
         }
-        distinct = { ["DISTINCT"] | ["ALL"] }
+        distinct = { [i"DISTINCT"] | [i"ALL"] }
         select_column = { expr ~ as_qualif? | ["*"] | table_name ~ ["."] ~ ["*"] }
         values = {
-            ["VALUES"] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] |
+            [i"VALUES"] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"] |
             values ~ [","] ~ ["("] ~ (expr ~ ([","] ~ expr)*) ~ [")"]
         }
         as_qualif = {
-            ["AS"] ~ name |
+            [i"AS"] ~ name |
             id_string
         }
-        from = { ["FROM"] ~ select_table_list }
+        from = { [i"FROM"] ~ select_table_list }
         select_table_list = {
             select_table |
             select_table_list ~ join_operator ~ select_table ~ join_constraint?
@@ -45,33 +48,33 @@ impl_rdp! {
             ["("] ~ select_table_list ~ [")"] ~ as_qualif?
         }
         join_constraint = {
-            ["ON"] ~ expr |
-            ["USING"] ~ ["("] ~ (column_name ~ ([","] ~ column_name)*) ~ [")"]
+            [i"ON"] ~ expr |
+            [i"USING"] ~ ["("] ~ (column_name ~ ([","] ~ column_name)*) ~ [")"]
         }
         join_operator = {
             [","] |
-            ["JOIN"] |
-            ["NATURAL"]? ~ join_type ~ ["JOIN"]
+            [i"JOIN"] |
+            [i"NATURAL"]? ~ join_type ~ [i"JOIN"]
         }
-        join_type = { ["LEFT"] ~ ["OUTER"]? | ["INNER"] | ["CROSS"] }
+        join_type = { [i"LEFT"] ~ [i"OUTER"]? | [i"INNER"] | [i"CROSS"] }
 
         indexed = {
-            ["INDEXED"] ~ ["BY"] ~ index_name |
-            ["NOT"] ~ ["INDEXED"]
+            [i"INDEXED"] ~ [i"BY"] ~ index_name |
+            [i"NOT"] ~ [i"INDEXED"]
         }
 
-        where_clause = { ["WHERE"] ~ expr }
-        group_by = { ["GROUP"] ~ ["BY"] ~ (expr ~ ([","] ~ expr)*) ~ (["HAVING"] ~ expr)? }
-        order_by = { ["ORDER"] ~ ["BY"] ~ (sorted_column ~ ([","] ~ sorted_column)*) }
+        where_clause = { [i"WHERE"] ~ expr }
+        group_by = { [i"GROUP"] ~ [i"BY"] ~ (expr ~ ([","] ~ expr)*) ~ ([i"HAVING"] ~ expr)? }
+        order_by = { [i"ORDER"] ~ [i"BY"] ~ (sorted_column ~ ([","] ~ sorted_column)*) }
         limit = {
-            ["LIMIT"] ~ expr |
-            ["LIMIT"] ~ expr ~ ["OFFSET"] ~ expr |
-            ["LIMIT"] ~ expr ~ [","] ~ expr
+            [i"LIMIT"] ~ expr |
+            [i"LIMIT"] ~ expr ~ [i"OFFSET"] ~ expr |
+            [i"LIMIT"] ~ expr ~ [","] ~ expr
         }
 
         // Common Table Expressions
-        with = { ["WITH"] ~ ["RECURSIVE"]? ~ (with_query ~ ([","] ~ with_query)*) }
-        with_query = { table_name ~ (["("] ~ (indexed_column ~ ([","] ~ indexed_column)*) ~ [")"])? ~ ["AS"] ~ ["("] ~ select ~ [")"] }
+        with = { [i"WITH"] ~ [i"RECURSIVE"]? ~ (with_query ~ ([","] ~ with_query)*) }
+        with_query = { table_name ~ (["("] ~ (indexed_column ~ ([","] ~ indexed_column)*) ~ [")"])? ~ [i"AS"] ~ ["("] ~ select ~ [")"] }
 
         database_name = _{ name }
         table_name = _{ name }
@@ -92,8 +95,8 @@ impl_rdp! {
             (["+"] | ["-"])? ~ number
         }
 
-        sort_order = { ["ASC"] | ["DESC"] }
-        indexed_column = { column_name ~ (["COLLATE"] ~ collation_name)? ~ sort_order? }
+        sort_order = { [i"ASC"] | [i"DESC"] }
+        indexed_column = { column_name ~ ([i"COLLATE"] ~ collation_name)? ~ sort_order? }
         sorted_column = { expr ~ sort_order? }
 
         // Expression
@@ -104,17 +107,17 @@ impl_rdp! {
             name ~ ["."] ~ name |
             name ~ ["."] ~ name ~ ["."] ~ name |
             variable |
-            ["CAST"] ~ ["("] ~ expr ~ ["AS"] ~ type_name ~ [")"] |
+            [i"CAST"] ~ ["("] ~ expr ~ [i"AS"] ~ type_name ~ [")"] |
             id ~ ["("] ~ distinct? ~ (expr ~ ([","] ~ expr)*)? ~ [")"] |
             id ~ ["("] ~ ["*"] ~ [")"] |
             ["("] ~ select ~ [")"] |
-            ["EXISTS"] ~ ["("] ~ select ~ [")"] |
-            ["CASE"] ~ expr? ~ (["WHEN"] ~ expr ~ ["THEN"] ~ expr)+ ~ (["ELSE"] ~ expr)? ~ ["END"] |
-            ["RAISE"] ~ ["("] ~ ["IGNORE"] ~ [")"] |
-            ["RAISE"] ~ ["("] ~ raise_type ~ [","] ~ literal ~ [")"] // TODO name versus literal
+            [i"EXISTS"] ~ ["("] ~ select ~ [")"] |
+            [i"CASE"] ~ expr? ~ ([i"WHEN"] ~ expr ~ [i"THEN"] ~ expr)+ ~ ([i"ELSE"] ~ expr)? ~ [i"END"] |
+            [i"RAISE"] ~ ["("] ~ [i"IGNORE"] ~ [")"] |
+            [i"RAISE"] ~ ["("] ~ raise_type ~ [","] ~ literal ~ [")"] // TODO name versus literal
         }
 
-        raise_type = { ["ROLLBACK"] | ["ABORT"] | ["FAIL"] }
+        raise_type = { [i"ROLLBACK"] | [i"ABORT"] | [i"FAIL"] }
 
         // A keyword in single quotes is a string literal.
         literal = @{ ["'"] ~ (["''"] | !["'"] ~ any)* ~ ["'"] }
