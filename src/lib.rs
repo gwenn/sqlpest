@@ -13,7 +13,76 @@ impl_rdp! {
         cmd_list = { (explain_cmd ~ [";"])* ~ explain_cmd? }
         explain_cmd = { ([i"explain"] ~ ([i"query"] ~ [i"plan"])?)? ~ cmd }
         cmd = {
+            alter_table |
+            create_table |
             select
+        }
+
+        // Alter Table
+        alter_table = { [i"alter"] ~ [i"table"] ~ qualified_table_name ~ alter_table_body }
+        alter_table_body = {
+            [i"rename"] ~ [i"to"] ~ table_name |
+            [i"add"] ~ [i"column"]? ~ column_def
+        }
+
+        // Create Table
+        create_table = {
+            [i"create"] ~ [i"temp"]? ~ [i"table"] ~ if_not_exists? ~ qualified_table_name ~ create_table_body
+        }
+        if_not_exists = { [i"if"] ~ [i"not"] ~ [i"exists"] }
+        create_table_body = {
+            ["("] ~ column_def ~ ([","] ~ column_def)* ~ ([","] ~ named_table_constraint ~ ([","] ~ named_table_constraint)*)? ~ [")"] ~ ([i"without"] ~ name)? |
+            [i"as"] ~ select
+        }
+        column_def = {
+            column_name ~ type_name? ~ (([i"constraint"] ~ constraint_name)? ~ column_constraint)*
+        }
+        column_constraint = {
+            [i"primary"] ~ [i"key"] ~ sort_order? ~ conflict_clause? ~ [i"autoincrement"]? |
+            [i"not"]? ~ [i"null"] ~ conflict_clause? |
+            [i"unique"] ~ conflict_clause? |
+            [i"check"] ~ ["("] ~ expr ~ [")"] |
+            [i"default"] ~ default_value |
+            [i"collate"] ~ collation_name |
+            [i"references"] ~ table_name ~ (["("] ~ indexed_column ~ ([","] ~ indexed_column)* ~ [")"])? ~ ref_arg*
+        }
+        conflict_clause = {
+            [i"on"] ~ [i"conflict"] ~ resolve_type
+        }
+        resolve_type = {
+            raise_type |
+            [i"ignore"] |
+            [i"replace"]
+        }
+        default_value = {
+            literal |
+            ["("] ~ expr ~ [")"] |
+            ["+"] ~ number |
+            ["-"] ~ number |
+            id
+        }
+        ref_arg = {
+            [i"on"] ~ [i"delete"] ~ ref_act |
+            [i"on"] ~ [i"update"] ~ ref_act |
+            [i"match"] ~ name
+        }
+        ref_act = {
+            [i"set"] ~ [i"null"] |
+            [i"set"] ~ [i"default"] |
+            [i"cascade"] |
+            [i"restrict"] |
+            [i"no"] ~ [i"action"]
+        }
+        named_table_constraint = { ([i"constraint"] ~ constraint_name)? ~ table_constraint }
+        table_constraint = {
+            [i"primary"] ~ [i"key"] ~ ["("] ~ sorted_column ~ ([","] ~ sorted_column)* ~ [i"autoincrement"]? ~ [")"] ~ conflict_clause? |
+            [i"unique"] ~ ["("] ~ sorted_column ~ ([","] ~ sorted_column)* ~ [")"] ~ conflict_clause? |
+            [i"check"] ~ ["("] ~ expr ~ [")"] |
+            [i"foreign"] ~ [i"key"] ~ ["("] ~ indexed_column ~ ([","] ~ indexed_column)* ~ [")"] ~ [i"references"] ~ table_name ~ (["("] ~ indexed_column ~ ([","] ~ indexed_column)* ~ [")"])? ~ ref_arg* ~ defer_sub_clause?
+
+        }
+        defer_sub_clause = {
+            [i"not"]? ~ [i"deferrable"] ~ ([i"initially"] ~ ([i"deferred"] | [i"immediate"]))?
         }
 
         // Select
@@ -71,9 +140,7 @@ impl_rdp! {
         group_by = { [i"group"] ~ [i"by"] ~ (expr ~ ([","] ~ expr)*) ~ ([i"having"] ~ expr)? }
         order_by = { [i"order"] ~ [i"by"] ~ (sorted_column ~ ([","] ~ sorted_column)*) }
         limit = {
-            [i"limit"] ~ expr |
-            [i"limit"] ~ expr ~ [i"offset"] ~ expr |
-            [i"limit"] ~ expr ~ [","] ~ expr
+            [i"limit"] ~ expr ~ (([i"offset"] | [","]) ~ expr)?
         }
 
         // Common Table Expressions
@@ -82,17 +149,16 @@ impl_rdp! {
 
         database_name = _{ name }
         table_name = _{ name }
-        qualified_table_name = { (database_name ~ ["."])? ~ table_name }
+        qualified_table_name = @{ (database_name ~ ["."])? ~ table_name }
         column_name = _{ name }
         index_name = _{ name }
+        constraint_name = _{ name }
         name = _{ id } // TODO string_literal
 
         id_string = { id | string_literal }
         collation_name = _{ id_string }
         type_name = _{
-            id_string+ |
-            id_string+ ~ ["("] ~ signed_number ~ [")"] |
-            id_string+ ~ ["("] ~ signed_number ~ [","] ~ signed_number ~ [")"]
+            id_string+ ~ (["("] ~ signed_number ~ ([","] ~ signed_number)? ~ [")"])?
         }
 
         signed_number = {
@@ -108,8 +174,7 @@ impl_rdp! {
             literal |
             ["("] ~ expr ~ [")"] |
             id |
-            name ~ ["."] ~ name |
-            name ~ ["."] ~ name ~ ["."] ~ name |
+            name ~ ["."] ~ name ~ (["."] ~ name)? |
             variable |
             [i"cast"] ~ ["("] ~ expr ~ [i"as"] ~ type_name ~ [")"] |
             id ~ ["("] ~ distinct? ~ (expr ~ ([","] ~ expr)*)? ~ [")"] |
@@ -137,7 +202,7 @@ impl_rdp! {
         blob = @{ (["x"] | ["X"]) ~ ["'"] ~ (hex_digit)+ ~ ["'"] } // TODO nb of hex digit must be even.
 
         id = @{
-            id_start ~ (id_cont)* |
+            (['A'..'Z'] | ["_"] | ['a'..'z']) ~ (["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'])* |
             // empty Id ("") is OK
             // A keyword in double-quotes is an identifier.
             ["\""] ~ (["\"\""] | !["\""] ~ any)* ~ ["\""] |
@@ -149,12 +214,10 @@ impl_rdp! {
         // FIXME ranges should have same-sized UTF-8 limits
         //id_start = { ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
         //id_cont = { ["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
-        id_start = { ['A'..'Z'] | ["_"] | ['a'..'z'] }
-        id_cont = { ["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'] }
 
         variable = @{
             ["?"] ~ digit* |
-            (["$"] | ["@"] | ["#"] | [":"]) ~ (id_cont)+
+            (["$"] | ["@"] | ["#"] | [":"]) ~ (["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'])+
         }
 
         number = @{ int | float }

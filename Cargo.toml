@@ -9,4 +9,4 @@ keywords = ["sql", "parser", "sqlite"]
 license = "Apache-2.0/MIT"
 
 [dependencies]
-pest = { git = "https://github.com/dragostis/pest", branch = "v0.4.0" }
+pest = "0.4"
