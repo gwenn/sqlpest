@@ -105,7 +105,7 @@ impl_rdp! {
         }
         as_qualif = {
             [i"as"] ~ name |
-            id_string
+            !([i"limit"] | [i"order"] | [i"where"]) ~ id_string
         }
         from = { [i"from"] ~ select_table_list }
         select_table_list = {

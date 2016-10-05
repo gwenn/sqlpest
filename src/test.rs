@@ -50,7 +50,7 @@ fn test_column_definition() {
 
 #[test]
 fn test_column_constraints() {
-    assert_parse!("CREATE TABLE test (id CONSTRAINTS not_null NOT NULL)", create_table);
+    assert_parse!("CREATE TABLE test (id CONSTRAINT not_null NOT NULL)", create_table);
     assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT)", create_table);
     assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY ON CONFLICT IGNORE)", create_table);
     assert_parse!("CREATE TABLE test (id UNIQUE)", create_table);
@@ -64,7 +64,7 @@ fn test_column_constraints() {
 
 #[test]
 fn test_table_constraints() {
-    //assert_parse!("CREATE TABLE test (id, CONSTRAINTS pk PRIMARY KEY (id))", create_table);
+    //assert_parse!("CREATE TABLE test (id, CONSTRAINT pk PRIMARY KEY (id))", create_table);
     //assert_parse!("CREATE TABLE test (id, UNIQUE (id))", create_table);
     //assert_parse!("CREATE TABLE test (id, CHECK (id > 0))", create_table);
     //assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id))", create_table);
@@ -75,6 +75,9 @@ fn test_table_constraints() {
 #[test]
 fn test_select() {
     assert_parse!("SELECT 1", cmd);
+    assert_parse!("SELECT * FROM test ORDER BY 1", select);
+    assert_parse!("SELECT * FROM test ORDER BY 1, id", select);
+    assert_parse!("SELECT * FROM test LIMIT 1", select);
 }
 
 #[test]
@@ -82,12 +85,8 @@ fn test_one_select() {
     assert_parse!("SELECT 1", one_select);
     assert_parse!("SELECT 1, 'test'", one_select);
 
-    assert_parse!("WHERE 1", where_clause);
-    //assert_parse!("SELECT * FROM test WHERE 1", one_select);
+    assert_parse!("SELECT * FROM test WHERE 1", one_select);
     //assert_parse!("SELECT * FROM test WHERE 1 GROUP BY id HAVING count(*) > 1", one_select);
-    //assert_parse!("SELECT * FROM test ORDER BY 1", one_select);
-    //assert_parse!("SELECT * FROM test ORDER BY 1, id", one_select);
-    //assert_parse!("SELECT * FROM test LIMIT 1", one_select);
 
     //assert_parse!("SELECT 1 FROM WHERE 1", one_select);
 }
