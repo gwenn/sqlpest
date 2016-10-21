@@ -1,4 +1,4 @@
-#![recursion_limit = "400"]
+#![recursion_limit = "500"]
 
 #[macro_use]
 extern crate pest;
@@ -31,7 +31,7 @@ impl_rdp! {
         }
         if_not_exists = { [i"if"] ~ [i"not"] ~ [i"exists"] }
         create_table_body = {
-            ["("] ~ column_def ~ ([","] ~ column_def)* ~ ([","] ~ named_table_constraint ~ ([","] ~ named_table_constraint)*)? ~ [")"] ~ ([i"without"] ~ name)? |
+            ["("] ~ column_def ~ ([","] ~ !(named_table_constraint) ~ column_def)* ~ ([","] ~ named_table_constraint)* ~ [")"] ~ ([i"without"] ~ name)? |
             [i"as"] ~ select
         }
         column_def = {
@@ -214,6 +214,29 @@ impl_rdp! {
         // FIXME ranges should have same-sized UTF-8 limits
         //id_start = { ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
         //id_cont = { ["$"] | ['0'..'9'] | ['A'..'Z'] | ["_"] | ['a'..'z'] | ['\u{7F}'..'\u{1FFFF}'] }
+
+        keyword = @{
+            [i"add"] | [i"all"] | [i"alter"] | [i"and"] | [i"as"] | [i"autoincrement"] |
+            [i"between"] |
+            [i"check"] | [i"collate"] | [i"commit"] | [i"constraint"] | [i"create"] | [i"cross"] |
+            [i"default"] | [i"deferrable"] | [i"delete"] | [i"distinct"] | [i"drop"] |
+            [i"escape"] | [i"exists"] |
+            [i"foreign"] | [i"from"] | [i"full"] |
+            [i"group"] |
+            [i"having"] |
+            [i"in"] | [i"index"] | [i"inner"] | [i"insert"] | [i"intersect"] | [i"into"] | [i"is"] | [i"isnull"] |
+            [i"join"] |
+            [i"left"] | [i"limit"] |
+            [i"natural"] | [i"not"] | [i"notnull"] | [i"null"] |
+            [i"on"] | [i"or"] | [i"order"] | [i"outer"] |
+            [i"primary"] |
+            [i"references"] | [i"right"] |
+            [i"select"] | [i"set"] |
+            [i"table"] | [i"temporary"] | [i"then"] | [i"to"] | [i"transaction"] |
+            [i"unique"] | [i"update"] | [i"using"] |
+            [i"values"] |
+            [i"when"] | [i"where"]
+        }
 
         variable = @{
             ["?"] ~ digit* |

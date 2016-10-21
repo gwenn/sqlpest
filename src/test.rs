@@ -5,6 +5,11 @@ macro_rules! assert_parse {
     ($s:expr, $c:ident) => {{
         let mut parser = Rdp::new(StringInput::new($s));
         assert!(parser.$c());
+        /*if !parser.$c() || !parser.end() {
+            println!("pos: {:?}", parser.input().pos());
+            println!("expected: {:?}", parser.expected());
+            println!("queue: {:?}", parser.queue());
+        }*/
         assert!(parser.end());
     }};
 }
@@ -26,7 +31,7 @@ fn test_create_table() {
     assert_parse!("CREATE TABLE main.test (col)", create_table);
     assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL)", create_table);
 
-    //assert_parse!("CREATE TABLE test (id INTERGER NOT NULL, PRIMARY KEY (id))", create_table);
+    assert_parse!("CREATE TABLE test (id INTERGER NOT NULL, PRIMARY KEY (id))", create_table);
     assert_parse!("CREATE TABLE test AS SELECT 1", create_table);
 
     assert_parse!("CREATE TEMP TABLE test (col)", create_table);
@@ -64,12 +69,12 @@ fn test_column_constraints() {
 
 #[test]
 fn test_table_constraints() {
-    //assert_parse!("CREATE TABLE test (id, CONSTRAINT pk PRIMARY KEY (id))", create_table);
-    //assert_parse!("CREATE TABLE test (id, UNIQUE (id))", create_table);
+    assert_parse!("CREATE TABLE test (id, CONSTRAINT pk PRIMARY KEY (id))", create_table);
+    assert_parse!("CREATE TABLE test (id, UNIQUE (id))", create_table);
     //assert_parse!("CREATE TABLE test (id, CHECK (id > 0))", create_table);
-    //assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id))", create_table);
-    //assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable)", create_table);
-    //assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id) DEFERRABLE INITIALLY DEFERRED)", create_table);
+    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id))", create_table);
+    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable)", create_table);
+    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id) DEFERRABLE INITIALLY DEFERRED)", create_table);
 }
 
 #[test]
@@ -104,4 +109,9 @@ fn test_expr() {
 #[test]
 fn test_number() {
     assert_parse!("1", number);
+}
+
+#[test]
+fn test_id() {
+    assert_parse!("id", id);
 }
