@@ -29,9 +29,11 @@ fn test_alter_table() {
 fn test_create_table() {
     assert_parse!("CREATE TABLE test (col)", create_table);
     assert_parse!("CREATE TABLE main.test (col)", create_table);
-    assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL)", create_table);
+    assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL)",
+                  create_table);
 
-    assert_parse!("CREATE TABLE test (id INTERGER NOT NULL, PRIMARY KEY (id))", create_table);
+    assert_parse!("CREATE TABLE test (id INTERGER NOT NULL, PRIMARY KEY (id))",
+                  create_table);
     assert_parse!("CREATE TABLE test AS SELECT 1", create_table);
 
     assert_parse!("CREATE TEMP TABLE test (col)", create_table);
@@ -48,16 +50,20 @@ fn test_column_definition() {
     assert_parse!("CREATE TABLE test (id UNSIGNED BIG INT)", create_table);
     assert_parse!("CREATE TABLE test (id INT8)", create_table);
     assert_parse!("CREATE TABLE test (id CHARACTER(20))", create_table);
-    assert_parse!("CREATE TABLE test (id VARYING CHARACTER(255))", create_table);
+    assert_parse!("CREATE TABLE test (id VARYING CHARACTER(255))",
+                  create_table);
     assert_parse!("CREATE TABLE test (id DOUBLE PRECISION)", create_table);
     assert_parse!("CREATE TABLE test (id DECIMAL(10,5))", create_table);
 }
 
 #[test]
 fn test_column_constraints() {
-    assert_parse!("CREATE TABLE test (id CONSTRAINT not_null NOT NULL)", create_table);
-    assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT)", create_table);
-    assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY ON CONFLICT IGNORE)", create_table);
+    assert_parse!("CREATE TABLE test (id CONSTRAINT not_null NOT NULL)",
+                  create_table);
+    assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT)",
+                  create_table);
+    assert_parse!("CREATE TABLE test (id INTEGER PRIMARY KEY ON CONFLICT IGNORE)",
+                  create_table);
     assert_parse!("CREATE TABLE test (id UNIQUE)", create_table);
     //assert_parse!("CREATE TABLE test (id CHECK (id > 0))", create_table);
     assert_parse!("CREATE TABLE test (id DEFAULT '')", create_table);
@@ -69,12 +75,17 @@ fn test_column_constraints() {
 
 #[test]
 fn test_table_constraints() {
-    assert_parse!("CREATE TABLE test (id, CONSTRAINT pk PRIMARY KEY (id))", create_table);
+    assert_parse!("CREATE TABLE test (id, CONSTRAINT pk PRIMARY KEY (id))",
+                  create_table);
     assert_parse!("CREATE TABLE test (id, UNIQUE (id))", create_table);
     //assert_parse!("CREATE TABLE test (id, CHECK (id > 0))", create_table);
-    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id))", create_table);
-    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable)", create_table);
-    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id) DEFERRABLE INITIALLY DEFERRED)", create_table);
+    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id))",
+                  create_table);
+    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable)",
+                  create_table);
+    assert_parse!("CREATE TABLE test (id, FOREIGN KEY (id) REFERENCES fktable(id) DEFERRABLE \
+                   INITIALLY DEFERRED)",
+                  create_table);
 }
 
 #[test]
