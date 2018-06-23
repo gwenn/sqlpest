@@ -8,6 +8,10 @@ readme = "README.md"
 keywords = ["sql", "parser", "sqlite"]
 license = "Apache-2.0/MIT"
 
+[badges]
+travis-ci = { repository = "gwenn/sqlpest" }
+maintenance = { status = "experimental" }
+
 [dependencies]
 pest = "1.0"
 pest_derive = "1.0"
