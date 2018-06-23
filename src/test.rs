@@ -1,18 +1,39 @@
 use super::{Rule, SqlParser};
 use pest::Parser;
 
+// TODO https://docs.rs/pest/1.0.6/pest/macro.parses_to.html
 macro_rules! assert_parse {
     ($s:expr, $c:ident) => {{
         let pairs = SqlParser::parse(Rule::$c, $s).unwrap_or_else(|e| panic!("{}", e));
-        println!("{:?} =>", $s);
+        //println!("{:?} =>", $s);
         for pair in pairs.flatten() {
-            let span = pair.clone().into_span();
+            let _span = pair.clone().into_span();
             // A pair is a combination of the rule which matched and a span of input
-            println!("Rule:    {:?}", pair.as_rule());
+            //println!("Rule:    {:?}", pair.as_rule());
             //println!("Span:    {:?}", span);
-            println!("Text:    {}", span.as_str());
+            //println!("Text:    {}", span.as_str());
         }
     }};
+}
+
+#[test]
+fn test_begin() {
+    parses_to! {
+        parser: SqlParser,
+        input:  "BEGIN",
+        rule:   Rule::begin,
+        tokens: [
+            begin(0, 5)
+        ]
+    };
+    /*parses_to! {
+        parser: SqlParser,
+        input:  "BEGIN test",
+        rule:   Rule::begin,
+        tokens: [
+            begin(0, 6, [id(6, 10)])
+        ]
+    };*/
 }
 
 #[test]
@@ -23,7 +44,14 @@ fn test_alter_table() {
     assert_parse!("ALTER TABLE test ADD new", alter_table);
     assert_parse!("ALTER TABLE test ADD COLUMN new", alter_table);
 
-    //assert_parse!("ALTER TABLE RENAME TO new", alter_table);
+    fails_with! {
+        parser: SqlParser,
+        input: "ALTER TABLE RENAME TO new",
+        rule: Rule::alter_table,
+        positives: vec![Rule::alter_table_body],
+        negatives: vec![],
+        pos: 19
+    };
 }
 
 #[test]
@@ -44,10 +72,38 @@ fn test_create_table() {
     assert_parse!("CREATE TEMP TABLE test (col)", create_table);
     assert_parse!("CREATE TABLE IF NOT EXISTS test (col)", create_table);
 
-    //assert_parse!(("CREATE TABLE test", create_table);
-    //assert_parse!(("CREATE TABLE test ()", create_table);
-    //assert_parse!(("CREATE TABLE test (PRIMARY KEY (id))", create_table);
-    //assert_parse!(("CREATE TABLE test (col,)", create_table);
+    fails_with! {
+        parser: SqlParser,
+        input: "CREATE TABLE test",
+        rule: Rule::create_table,
+        positives: vec![Rule::create_table_body],
+        negatives: vec![],
+        pos: 17
+    };
+    fails_with! {
+        parser: SqlParser,
+        input: "CREATE TABLE test ()",
+        rule: Rule::create_table,
+        positives: vec![Rule::column_def],
+        negatives: vec![],
+        pos: 19
+    };
+    fails_with! {
+        parser: SqlParser,
+        input: "CREATE TABLE test (PRIMARY KEY (id))",
+        rule: Rule::create_table,
+        positives: vec![Rule::signed_number],
+        negatives: vec![],
+        pos: 32
+    };
+    fails_with! {
+        parser: SqlParser,
+        input: "CREATE TABLE test (col,)",
+        rule: Rule::create_table,
+        positives: vec![Rule::column_def, Rule::table_constraint],
+        negatives: vec![],
+        pos: 23
+    };
 }
 
 #[test]
@@ -125,7 +181,14 @@ fn test_one_select() {
     assert_parse!("SELECT * FROM test WHERE 1", one_select);
     //assert_parse!("SELECT * FROM test WHERE 1 GROUP BY id HAVING count(*) > 1", one_select);
 
-    //assert_parse!("SELECT 1 FROM WHERE 1", one_select);
+    /*fails_with! {
+        parser: SqlParser,
+        input: "SELECT 1 FROM WHERE 1",
+        rule: Rule::one_select,
+        positives: vec![],
+        negatives: vec![],
+        pos: 23
+    };*/
 }
 
 #[test]

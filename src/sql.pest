@@ -2,20 +2,44 @@ cmd_list = { (explain_cmd ~ ";")* ~ explain_cmd? }
 explain_cmd = { (^"explain" ~ (^"query" ~ ^"plan")?)? ~ cmd }
 cmd = {
     alter_table |
+    analyze |
+    attach |
+    begin |
+    commit |
+    create_index |
     create_table |
-    select
+    create_trigger |
+    create_view |
+    delete |
+    detach |
+    drop_index |
+    drop_table |
+    drop_trigger |
+    drop_view |
+    insert |
+    pragma |
+    reindex |
+    release |
+    rollback |
+    savepoint |
+    select |
+    update |
+    vacuum
 }
 
-// Alter Table
-alter_table = { ^"alter" ~ ^"table" ~ qualified_table_name ~ alter_table_body }
-alter_table_body = {
-    ^"rename" ~ ^"to" ~ table_name |
-    ^"add" ~ ^"column"? ~ column_def
-}
+///////////////////// Begin and end transactions. ////////////////////////////
+transaction = { ^"transaction" ~ name? }
+transaction_type = { ^"deferred" | ^"immediate" | ^"exclusive" }
+begin = { ^"begin" ~ transaction_type? ~ transaction? }
+commit = { (^"commit" | ^"end") ~ transaction }
+rollback = { ^"rollback" ~ transaction? ~ (^"to" ~ ^"savepoint"? ~ name)? }
+savepoint = { ^"savepoint" ~ name }
+release = { ^"release" ~ ^"savepoint"? ~ name }
 
-// Create Table
+///////////////////// The CREATE TABLE statement ////////////////////////////
+temp = _{ ^"temp" | ^"temporary" }
 create_table = {
-    ^"create" ~ ^"temp"? ~ ^"table" ~ if_not_exists? ~ qualified_table_name ~ create_table_body
+    ^"create" ~ temp? ~ ^"table" ~ if_not_exists? ~ qualified_table_name ~ create_table_body
 }
 if_not_exists = { ^"if" ~ ^"not" ~ ^"exists" }
 create_table_body = {
@@ -73,7 +97,15 @@ defer_sub_clause = {
     ^"not"? ~ ^"deferrable" ~ (^"initially" ~ (^"deferred" | ^"immediate"))?
 }
 
-// Select
+////////////////////////// The DROP TABLE /////////////////////////////////////
+drop_table = { ^"drop" ~ ^"table" ~ if_exists? ~ qualified_table_name }
+if_exists = { ^"if" ~ ^"exists" }
+
+///////////////////// The CREATE VIEW statement ///////////////////////////////
+create_view = { ^"create" ~ temp? ~ ^"view" ~ if_not_exists? ~ qualified_table_name ~ ("(" ~ indexed_column ~ ("," ~ indexed_column)* ~ ")")? ~ ^"as" ~ select }
+drop_view = { ^"drop" ~ ^"view" ~ if_exists? ~ qualified_table_name }
+
+//////////////////////// The SELECT statement /////////////////////////////////
 select = { with? ~ select_no_with ~ order_by? ~ limit? }
 select_no_with = {
     one_select ~ (compound_operator ~ one_select)*
@@ -86,10 +118,10 @@ one_select = {
 distinct = { ^"distinct" | ^"all" }
 select_column = { expr ~ as_qualif? | "*" | table_name ~ "." ~ "*" }
 values = {
-    ^"values" ~ "(" ~ (expr ~ ("," ~ expr)*) ~ ")" ~ values_tail?
+    ^"values" ~ "(" ~ expr ~ ("," ~ expr)* ~ ")" ~ values_tail?
 }
 values_tail = {
-    "," ~ "(" ~ (expr ~ ("," ~ expr)*) ~ ")" ~ values_tail?
+    "," ~ "(" ~ expr ~ ("," ~ expr)* ~ ")" ~ values_tail?
 }
 as_qualif = {
     ^"as" ~ name |
@@ -110,7 +142,7 @@ select_table = {
 }
 join_constraint = {
     ^"on" ~ expr |
-    ^"using" ~ "(" ~ (column_name ~ ("," ~ column_name)*) ~ ")"
+    ^"using" ~ "(" ~ column_name ~ ("," ~ column_name)* ~ ")"
 }
 join_operator = {
     "," |
@@ -125,23 +157,20 @@ indexed = {
 }
 
 where_clause = { ^"where" ~ expr }
-group_by = { ^"group" ~ ^"by" ~ (expr ~ ("," ~ expr)*) ~ (^"having" ~ expr)? }
-order_by = { ^"order" ~ ^"by" ~ (sorted_column ~ ("," ~ sorted_column)*) }
+group_by = { ^"group" ~ ^"by" ~ expr ~ ("," ~ expr)* ~ (^"having" ~ expr)? }
+order_by = { ^"order" ~ ^"by" ~ sorted_column ~ ("," ~ sorted_column)* }
 limit = {
     ^"limit" ~ expr ~ ((^"offset" | ",") ~ expr)?
 }
 
-// Common Table Expressions
-with = { ^"with" ~ ^"recursive"? ~ (with_query ~ ("," ~ with_query)*) }
-with_query = { table_name ~ ("(" ~ (indexed_column ~ ("," ~ indexed_column)*) ~ ")")? ~ ^"as" ~ "(" ~ select ~ ")" }
-
 database_name = { name }
 table_name = { name }
-qualified_table_name = @{ (database_name ~ ".")? ~ table_name }
+qualified_table_name = ${ (database_name ~ ".")? ~ table_name }
 column_name = { name }
 index_name = _{ name }
 constraint_name = { name }
 name = _{ id } // TODO string_literal
+qualified_name = ${ (database_name ~ ".")? ~ name }
 
 id_string = { id | string_literal }
 collation_name = _{ id_string }
@@ -157,7 +186,96 @@ sort_order = { ^"asc" | ^"desc" }
 indexed_column = { column_name ~ (^"collate" ~ collation_name)? ~ sort_order? }
 sorted_column = { expr ~ sort_order? }
 
-// Expression
+/////////////////////////// The DELETE statement /////////////////////////////
+delete = { with? ~ ^"delete" ~ ^"from" ~ qualified_table_name ~ indexed? ~ where_clause? ~ order_by? ~ limit? }
+
+////////////////////////// The UPDATE command ////////////////////////////////
+update = { with? ~ ^"update" ~ or_conflict? ~ qualified_table_name ~ indexed? ~ ^"set" ~ set ~ ("," ~ set)* ~ where_clause? ~ order_by? ~ limit? }
+or_conflict = { ^"or" ~ resolve_type }
+set = { column_name ~ "=" ~ expr }
+
+////////////////////////// The INSERT command /////////////////////////////////
+insert = { with? ~ insert_cmd ~ ^"into" ~ qualified_table_name ~
+    ("(" ~ column_name ~ ("," ~ column_name)* ~ ")")? ~ insert_body
+}
+insert_cmd = { ^"insert" ~ or_conflict? | ^"replace" }
+insert_body = { select | ^"default" ~ ^"values" }
+
+///////////////////////////// The CREATE INDEX command ///////////////////////
+create_index = { ^"create" ~ ^"unique"? ~ ^"index" ~ if_not_exists? ~ qualified_index_name ~ ^"on" ~ table_name ~
+    "(" ~ sorted_column ~ ("," ~ sorted_column)* ~ ")" ~ where_clause?
+}
+drop_index = { ^"drop" ~ ^"index" ~ if_exists? ~ qualified_index_name }
+qualified_index_name = ${ (database_name ~ ".")? ~ index_name }
+
+///////////////////////////// The VACUUM command /////////////////////////////
+vacuum = { ^"vacuum" ~ database_name? }
+
+///////////////////////////// The PRAGMA command /////////////////////////////
+pragma = { ^"pragma" ~ qualified_name ~ pragma_body? }
+pragma_body = {
+  "=" ~ pragma_value | "(" ~ pragma_value ~ ")"
+}
+pragma_value = {
+    signed_number |
+    string_literal |
+    name |
+    ^"on" |
+    ^"delete" |
+    ^"default"
+}
+
+//////////////////////////// The CREATE TRIGGER command /////////////////////
+create_trigger = { ^"create" ~ temp? ~ ^"trigger" ~ if_not_exists? ~ qualified_name ~
+    trigger_time? ~ trigger_event ~ ^"on" ~ qualified_table_name ~ for_each_row? ~
+    when_clause? ~ ^"begin" ~ (trigger_cmd ~ ";")+ ~ ^"end"
+}
+trigger_time = { ^"before" | ^"after" | ^"instead" ~ ^"of" }
+trigger_event = { ^"delete" | ^"insert" | ^"update" ~ (^"of" ~ column_name ~ ("," ~ column_name)*)? }
+for_each_row = { "for" ~ ^"each" ~ ^"row" }
+when_clause = { ^"when" ~ expr }
+// Disallow qualified table names on INSERT, UPDATE, and DELETE statements
+// within a trigger. The table to INSERT, UPDATE, or DELETE is always in
+// the same database as the table that the trigger fires on.
+trigger_cmd = {
+    ^"update" ~ or_conflict? ~ table_name ~ ^"set" ~ set ~ ("," ~ set)* ~ where_clause? |
+    ^"insert" ~ ^"into" ~ table_name ~ ("(" ~ column_name ~ ("," ~ column_name)* ~ ")")? ~ select |
+    ^"delete" ~ ^"from" ~ table_name ~ where_clause? |
+    select
+}
+
+////////////////////////  DROP TRIGGER statement //////////////////////////////
+drop_trigger = { ^"drop" ~ ^"trigger" ~ if_exists? ~ qualified_name }
+
+//////////////////////// ATTACH DATABASE file AS name /////////////////////////
+attach = { ^"attach" ~ ^"database"? ~ expr ~ ^"as" ~ expr ~ ("key" ~ expr)? }
+detach = { ^"detach" ~ ^"database"? ~ expr }
+
+////////////////////////// REINDEX collation //////////////////////////////////
+reindex = { ^"reindex" ~ qualified_name? }
+
+/////////////////////////////////// ANALYZE ///////////////////////////////////
+analyze = { ^"analyze" ~ qualified_name? }
+
+//////////////////////// ALTER TABLE table ... ////////////////////////////////
+alter_table = { ^"alter" ~ ^"table" ~ qualified_table_name ~ alter_table_body }
+alter_table_body = {
+    ^"rename" ~ ^"to" ~ table_name |
+    ^"add" ~ ^"column"? ~ column_def
+}
+
+//////////////////////// CREATE VIRTUAL TABLE ... /////////////////////////////
+//create_vtab = { ^"create" ~ ^"virtual" ~ ^"table" ~ if_not_exists? ~ qualified_table_name ~
+//    ^"using" ~ name ~ ("(" ~ () ")")?
+//}
+//vtabarg = {
+//}
+
+//////////////////////// COMMON TABLE EXPRESSIONS ////////////////////////////
+with = { ^"with" ~ ^"recursive"? ~ with_query ~ ("," ~ with_query)* }
+with_query = { table_name ~ ("(" ~ indexed_column ~ ("," ~ indexed_column)* ~ ")")? ~ ^"as" ~ "(" ~ select ~ ")" }
+
+/////////////////////////// Expression Processing /////////////////////////////
 expr = {
     literal |
     "(" ~ expr ~ ")" |
@@ -173,7 +291,6 @@ expr = {
     ^"raise" ~ "(" ~ ^"ignore" ~ ")" |
     ^"raise" ~ "(" ~ raise_type ~ "," ~ string_literal ~ ")" // TODO name versus string_literal
 }
-
 raise_type = { ^"rollback" | ^"abort" | ^"fail" }
 
 literal = {
