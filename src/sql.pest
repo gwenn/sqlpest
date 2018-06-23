@@ -1,0 +1,254 @@
+cmd_list = { (explain_cmd ~ ";")* ~ explain_cmd? }
+explain_cmd = { (^"explain" ~ (^"query" ~ ^"plan")?)? ~ cmd }
+cmd = {
+    alter_table |
+    create_table |
+    select
+}
+
+// Alter Table
+alter_table = { ^"alter" ~ ^"table" ~ qualified_table_name ~ alter_table_body }
+alter_table_body = {
+    ^"rename" ~ ^"to" ~ table_name |
+    ^"add" ~ ^"column"? ~ column_def
+}
+
+// Create Table
+create_table = {
+    ^"create" ~ ^"temp"? ~ ^"table" ~ if_not_exists? ~ qualified_table_name ~ create_table_body
+}
+if_not_exists = { ^"if" ~ ^"not" ~ ^"exists" }
+create_table_body = {
+    "(" ~ column_def ~ ("," ~ !(named_table_constraint) ~ column_def)* ~ ("," ~ named_table_constraint)* ~ ")" ~ (^"without" ~ name)? |
+    ^"as" ~ select
+}
+column_def = {
+    column_name ~ type_name? ~ ((^"constraint" ~ constraint_name)? ~ column_constraint)*
+}
+column_constraint = {
+    ^"primary" ~ ^"key" ~ sort_order? ~ conflict_clause? ~ ^"autoincrement"? |
+    ^"not"? ~ ^"null" ~ conflict_clause? |
+    ^"unique" ~ conflict_clause? |
+    ^"check" ~ "(" ~ expr ~ ")" |
+    ^"default" ~ default_value |
+    ^"collate" ~ collation_name |
+    ^"references" ~ table_name ~ ("(" ~ indexed_column ~ ("," ~ indexed_column)* ~ ")")? ~ ref_arg*
+}
+conflict_clause = {
+    ^"on" ~ ^"conflict" ~ resolve_type
+}
+resolve_type = {
+    raise_type |
+    ^"ignore" |
+    ^"replace"
+}
+default_value = {
+    literal |
+    "(" ~ expr ~ ")" |
+    "+" ~ number |
+    "-" ~ number |
+    id
+}
+ref_arg = {
+    ^"on" ~ ^"delete" ~ ref_act |
+    ^"on" ~ ^"update" ~ ref_act |
+    ^"match" ~ name
+}
+ref_act = {
+    ^"set" ~ ^"null" |
+    ^"set" ~ ^"default" |
+    ^"cascade" |
+    ^"restrict" |
+    ^"no" ~ ^"action"
+}
+named_table_constraint = { (^"constraint" ~ constraint_name)? ~ table_constraint }
+table_constraint = {
+    ^"primary" ~ ^"key" ~ "(" ~ sorted_column ~ ("," ~ sorted_column)* ~ ^"autoincrement"? ~ ")" ~ conflict_clause? |
+    ^"unique" ~ "(" ~ sorted_column ~ ("," ~ sorted_column)* ~ ")" ~ conflict_clause? |
+    ^"check" ~ "(" ~ expr ~ ")" |
+    ^"foreign" ~ ^"key" ~ "(" ~ indexed_column ~ ("," ~ indexed_column)* ~ ")" ~ ^"references" ~ table_name ~ ("(" ~ indexed_column ~ ("," ~ indexed_column)* ~ ")")? ~ ref_arg* ~ defer_sub_clause?
+
+}
+defer_sub_clause = {
+    ^"not"? ~ ^"deferrable" ~ (^"initially" ~ (^"deferred" | ^"immediate"))?
+}
+
+// Select
+select = { with? ~ select_no_with ~ order_by? ~ limit? }
+select_no_with = {
+    one_select ~ (compound_operator ~ one_select)*
+}
+compound_operator = { ^"union" | ^"union" ~ ^"all" | ^"except" | ^"intersect" }
+one_select = {
+    ^"select" ~ distinct? ~ select_column ~ ("," ~ select_column)* ~ from? ~ where_clause? ~ group_by? |
+    values
+}
+distinct = { ^"distinct" | ^"all" }
+select_column = { expr ~ as_qualif? | "*" | table_name ~ "." ~ "*" }
+values = {
+    ^"values" ~ "(" ~ (expr ~ ("," ~ expr)*) ~ ")" ~ values_tail?
+}
+values_tail = {
+    "," ~ "(" ~ (expr ~ ("," ~ expr)*) ~ ")" ~ values_tail?
+}
+as_qualif = {
+    ^"as" ~ name |
+    !(^"limit" | ^"order" | ^"where") ~ id_string
+}
+from = { ^"from" ~ select_table_list }
+select_table_list = {
+    select_table ~ select_table_list_tail?
+}
+select_table_list_tail = {
+    join_operator ~ select_table ~ join_constraint? ~ select_table_list_tail?
+}
+select_table = {
+    qualified_table_name ~ as_qualif? ~ indexed? |
+    qualified_table_name ~ "(" ~ (expr ~ ("," ~ expr)*)? ~ ")" ~ as_qualif? |
+    "(" ~ select ~ ")" ~ as_qualif? |
+    "(" ~ select_table_list ~ ")" ~ as_qualif?
+}
+join_constraint = {
+    ^"on" ~ expr |
+    ^"using" ~ "(" ~ (column_name ~ ("," ~ column_name)*) ~ ")"
+}
+join_operator = {
+    "," |
+    ^"join" |
+    ^"natural"? ~ join_type ~ ^"join"
+}
+join_type = { ^"left" ~ ^"outer"? | ^"inner" | ^"cross" }
+
+indexed = {
+    ^"indexed" ~ ^"by" ~ index_name |
+    ^"not" ~ ^"indexed"
+}
+
+where_clause = { ^"where" ~ expr }
+group_by = { ^"group" ~ ^"by" ~ (expr ~ ("," ~ expr)*) ~ (^"having" ~ expr)? }
+order_by = { ^"order" ~ ^"by" ~ (sorted_column ~ ("," ~ sorted_column)*) }
+limit = {
+    ^"limit" ~ expr ~ ((^"offset" | ",") ~ expr)?
+}
+
+// Common Table Expressions
+with = { ^"with" ~ ^"recursive"? ~ (with_query ~ ("," ~ with_query)*) }
+with_query = { table_name ~ ("(" ~ (indexed_column ~ ("," ~ indexed_column)*) ~ ")")? ~ ^"as" ~ "(" ~ select ~ ")" }
+
+database_name = { name }
+table_name = { name }
+qualified_table_name = @{ (database_name ~ ".")? ~ table_name }
+column_name = { name }
+index_name = _{ name }
+constraint_name = { name }
+name = _{ id } // TODO string_literal
+
+id_string = { id | string_literal }
+collation_name = _{ id_string }
+type_name = {
+    id_string+ ~ ("(" ~ signed_number ~ ("," ~ signed_number)? ~ ")")?
+}
+
+signed_number = {
+    ("+" | "-")? ~ number
+}
+
+sort_order = { ^"asc" | ^"desc" }
+indexed_column = { column_name ~ (^"collate" ~ collation_name)? ~ sort_order? }
+sorted_column = { expr ~ sort_order? }
+
+// Expression
+expr = {
+    literal |
+    "(" ~ expr ~ ")" |
+    id |
+    name ~ "." ~ name ~ ("." ~ name)? |
+    variable |
+    ^"cast" ~ "(" ~ expr ~ ^"as" ~ type_name ~ ")" |
+    id ~ "(" ~ distinct? ~ (expr ~ ("," ~ expr)*)? ~ ")" |
+    id ~ "(" ~ "*" ~ ")" |
+    "(" ~ select ~ ")" |
+    ^"exists" ~ "(" ~ select ~ ")" |
+    ^"case" ~ expr? ~ (^"when" ~ expr ~ ^"then" ~ expr)+ ~ (^"else" ~ expr)? ~ ^"end" |
+    ^"raise" ~ "(" ~ ^"ignore" ~ ")" |
+    ^"raise" ~ "(" ~ raise_type ~ "," ~ string_literal ~ ")" // TODO name versus string_literal
+}
+
+raise_type = { ^"rollback" | ^"abort" | ^"fail" }
+
+literal = {
+    number |
+    string_literal |
+    blob |
+    ^"null" |
+    ^"current_date" |
+    ^"current_time" |
+    ^"current_timestamp"
+}
+// A keyword in single quotes is a string literal.
+string_literal = @{ "'" ~ ("''" | !"'" ~ any)* ~ "'" }
+blob = @{ ("x" | "X") ~ "'" ~ (hex_digit)+ ~ "'" } // TODO nb of hex digit must be even.
+
+id = @{
+    ('A'..'Z' | "_" | 'a'..'z') ~ ("$" | '0'..'9' | 'A'..'Z' | "_" | 'a'..'z')* |
+    // empty Id ("") is OK
+    // A keyword in double-quotes is an identifier.
+    "\"" ~ ("\"\"" | !"\"" ~ any)* ~ "\"" |
+    // A keyword enclosed in grave accents (ASCII code 96) is an identifier. This is not standard SQL.
+    "`" ~ ("``" | !"`" ~ any)* ~ "`" |
+    // A keyword enclosed in square brackets is an identifier. This is not standard SQL.
+    "[" ~ (!"]" ~ any)* ~ "]"
+}
+// FIXME ranges should have same-sized UTF-8 limits
+//id_start = { 'A'..'Z' | "_" | 'a'..'z' | '\u{7F}'..'\u{1FFFF}' }
+//id_cont = { "$" | '0'..'9' | 'A'..'Z' | "_" | 'a'..'z' | '\u{7F}'..'\u{1FFFF}' }
+
+keyword = @{
+    ^"add" | ^"all" | ^"alter" | ^"and" | ^"as" | ^"autoincrement" |
+    ^"between" |
+    ^"check" | ^"collate" | ^"commit" | ^"constraint" | ^"create" | ^"cross" |
+    ^"default" | ^"deferrable" | ^"delete" | ^"distinct" | ^"drop" |
+    ^"escape" | ^"exists" |
+    ^"foreign" | ^"from" | ^"full" |
+    ^"group" |
+    ^"having" |
+    ^"in" | ^"index" | ^"inner" | ^"insert" | ^"intersect" | ^"into" | ^"is" | ^"isnull" |
+    ^"join" |
+    ^"left" | ^"limit" |
+    ^"natural" | ^"not" | ^"notnull" | ^"null" |
+    ^"on" | ^"or" | ^"order" | ^"outer" |
+    ^"primary" |
+    ^"references" | ^"right" |
+    ^"select" | ^"set" |
+    ^"table" | ^"temporary" | ^"then" | ^"to" | ^"transaction" |
+    ^"unique" | ^"update" | ^"using" |
+    ^"values" |
+    ^"when" | ^"where"
+}
+
+variable = @{
+    "?" ~ digit* |
+    ("$" | "@" | "#" | ":") ~ ("$" | '0'..'9' | 'A'..'Z' | "_" | 'a'..'z')+
+}
+
+number = @{ int | float }
+int = {
+    digit+ |
+    "0" ~ ("x" | "X") ~ hex_digit+ // Must not be empty (Ox is invalid)
+}
+float = {
+    digit+ ~ "." ~ digit* ~ exponent? |
+    "." ~ digit+ ~ exponent? |
+    digit+ ~ exponent
+}
+exponent = { ("e" | "E") ~ ("+" | "-")? ~ digit+ }
+digit = _{ '0'..'9' }
+hex_digit = _{ '0'..'9' | 'a'..'f' | 'A'..'F' }
+
+comment = _{
+    // line comment
+    "--" ~ ((!("\n") ~ any)* ~ ("\n" | eoi)) |
+    // block comment
+    "/*" ~ ((!"*/" ~ any)*)
+}
+whitespace = _{ " " | "\t" | "\r" | "\n" }

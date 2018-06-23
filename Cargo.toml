@@ -9,4 +9,5 @@ keywords = ["sql", "parser", "sqlite"]
 license = "Apache-2.0/MIT"
 
 [dependencies]
-pest = "0.4"
+pest = "1.0"
+pest_derive = "1.0"
